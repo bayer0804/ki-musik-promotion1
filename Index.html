@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ki Musik Promotion</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="lang.js" defer></script>
+</head>
+<body>
+  <div class="background"></div>
+  <header>
+    <img src="images/logo.png" alt="Ki Musik Promotion Logo" class="logo" />
+    <h1 id="title">Ki Musik Promotion</h1>
+    <p id="tagline">Willkommen bei Ki Musik Promotion – wo KI und Emotion verschmelzen.</p>
+
+    <div class="lang-select">
+      <select id="language" onchange="changeLanguage(this.value)">
+        <option value="de">Deutsch</option>
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <section class="about">
+      <h2 id="about">Über mich</h2>
+      <p id="aboutText">
+        Ich erstelle KI-generierte Musik inspiriert von Klassik, Gospel und Jazz.
+        Tauche ein in emotionale Klänge, die Technologie und Seele verbinden.
+      </p>
+    </section>
+
+    <section class="music">
+      <h2 id="listen">Jetzt anhören</h2>
+      <iframe style="border-radius:12px" 
+        src="https://open.spotify.com/embed/artist/29dVZ8KvKSqV7ysvKSvt8r?utm_source=generator"
+        width="80%" height="380" frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
+      </iframe>
+    </section>
+
+    <section class="contact">
+      <h2 id="contactTitle">Kontakt</h2>
+      <p id="contactText">Für Anfragen oder Kooperationen schreibe an:</p>
+      <a href="mailto:bayer0804@gmail.com" class="contact-email">bayer0804@gmail.com</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 Ki Musik Promotion</p>
+  </footer>
+</body>
+</html>
