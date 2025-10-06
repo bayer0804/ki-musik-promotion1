@@ -1,0 +1,60 @@
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  color: #f5f5f5;
+  text-align: center;
+  background-color: #0d0d0d;
+  overflow-x: hidden;
+}
+.background {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(108,74,182,0.3), rgba(182,141,64,0.1), #0d0d0d);
+  animation: pulse 8s infinite alternate;
+  z-index: -1;
+}
+@keyframes pulse {
+  from { filter: blur(60px); opacity: 0.8; }
+  to { filter: blur(80px); opacity: 0.5; }
+}
+header {
+  padding: 20px;
+  background: linear-gradient(90deg, #6c4ab6, #b68d40);
+  color: white;
+}
+.logo {
+  width: 120px;
+  border-radius: 50%;
+  margin-top: 10px;
+}
+h1 { font-size: 2.2em; margin: 10px 0 5px; }
+h2 { color: #b68d40; margin-top: 40px; }
+.lang-select select {
+  background: #222;
+  color: #f5f5f5;
+  border: 1px solid #b68d40;
+  padding: 6px 12px;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+section {
+  margin: 40px auto;
+  max-width: 800px;
+}
+.contact-email {
+  display: inline-block;
+  margin-top: 10px;
+  color: #b68d40;
+  text-decoration: none;
+  font-weight: bold;
+}
+.contact-email:hover {
+  text-decoration: underline;
+}
+footer {
+  background: #111;
+  color: #888;
+  padding: 15px;
+  font-size: 0.9em;
+}
