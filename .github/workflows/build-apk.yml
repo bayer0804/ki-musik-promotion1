@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - niche-song-bridge-v11
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
