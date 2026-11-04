@@ -29,12 +29,39 @@ jobs:
         run: |
           chmod +x build-qcow2.sh configure-guest.sh
           sudo ./build-qcow2.sh
-      - name: Upload test artifact (not a public Contabo import URL)
+      - name: Split the verified QCOW2 into transport-safe parts
+        working-directory: bayerklang-image/output
+        run: |
+          set -euo pipefail
+          IMAGE='BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2'
+          test -s "$IMAGE"
+          split --bytes=350000000 --numeric-suffixes=0 --suffix-length=2 "$IMAGE" "$IMAGE.part-"
+          sha256sum "$IMAGE" > "$IMAGE.sha256"
+          printf 'Reassemble with: cat %s.part-* > %s\\n' "$IMAGE" "$IMAGE" > README-PARTS.txt
+          ls -lh "$IMAGE" "$IMAGE".part-*
+          test -s "$IMAGE.part-00"
+          test -s "$IMAGE.part-01"
+          test ! -e "$IMAGE.part-02"
+      - name: Upload part 1 for Google Drive transfer
         uses: actions/upload-artifact@v4
         with:
-          name: BAYERKLANG-KI-Desktop-QCOW2-test
-          path: |
-            bayerklang-image/output/*.qcow2
-            bayerklang-image/output/*.sha256
+          name: BAYERKLANG-QCOW2-part-00
+          path: bayerklang-image/output/*.qcow2.part-00
           retention-days: 7
+          compression-level: 0
+      - name: Upload part 2 for Google Drive transfer
+        uses: actions/upload-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-part-01
+          path: bayerklang-image/output/*.qcow2.part-01
+          retention-days: 7
+          compression-level: 0
+      - name: Upload checksums and restore instructions
+        uses: actions/upload-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-MANIFEST
+          path: |
+            bayerklang-image/output/*.sha256
+            bayerklang-image/output/README-PARTS.txt
+          retention-days: 30
           compression-level: 0
