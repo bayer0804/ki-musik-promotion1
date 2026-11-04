@@ -85,9 +85,10 @@ jobs:
           ENDPOINT="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
           HASH="$(sha256sum "$IMAGE" | cut -d ' ' -f1)"
           SIZE="$(stat -c '%s' "$IMAGE")"
-          aws --endpoint-url "$ENDPOINT" s3 cp "$IMAGE" "s3://$BUCKET/$KEY" \
-            --no-progress --content-type application/octet-stream \
-            --metadata "sha256=$HASH"
+          # Single authenticated S3 PUT: avoid multipart for a verified file below 5 GiB.
+          aws --endpoint-url "$ENDPOINT" s3api put-object \
+            --bucket "$BUCKET" --key "$KEY" --body "$IMAGE" \
+            --content-type application/octet-stream --metadata "sha256=$HASH"
           REMOTE_SIZE="$(aws --endpoint-url "$ENDPOINT" s3api head-object \
             --bucket "$BUCKET" --key "$KEY" --query ContentLength --output text)"
           REMOTE_HASH="$(aws --endpoint-url "$ENDPOINT" s3api head-object \
