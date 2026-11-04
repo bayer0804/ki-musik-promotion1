@@ -66,3 +66,51 @@ jobs:
             bayerklang-image/output/README-PARTS.txt
           retention-days: 30
           compression-level: 0
+
+      - name: Detect securely configured R2 credentials
+        id: r2_credentials
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.BAYERKLANG_R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.BAYERKLANG_R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.BAYERKLANG_R2_SECRET_ACCESS_KEY }}
+        run: |
+          if [[ -n "$R2_ACCOUNT_ID" && -n "$R2_ACCESS_KEY_ID" && -n "$R2_SECRET_ACCESS_KEY" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Scoped R2 credentials detected."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Private R2 upload skipped: configure BAYERKLANG_R2_ACCOUNT_ID, BAYERKLANG_R2_ACCESS_KEY_ID, and BAYERKLANG_R2_SECRET_ACCESS_KEY as Actions secrets."
+          fi
+      - name: Install AWS CLI for authenticated multipart upload
+        if: steps.r2_credentials.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y awscli
+      - name: Upload private QCOW2 to EU R2
+        if: steps.r2_credentials.outputs.ready == 'true'
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.BAYERKLANG_R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BAYERKLANG_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BAYERKLANG_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_EC2_METADATA_DISABLED: 'true'
+        run: |
+          set -euo pipefail
+          IMAGE="bayerklang-image/output/BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2"
+          KEY="images/BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2"
+          BUCKET="bayerklang-ki-images"
+          ENDPOINT="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
+          test -s "$IMAGE"
+          sha256sum -c "${IMAGE}.sha256"
+          SIZE="$(stat -c %s "$IMAGE")"
+          HASH="$(sha256sum "$IMAGE" | cut -d ' ' -f1)"
+          aws --endpoint-url "$ENDPOINT" s3 cp "$IMAGE" "s3://$BUCKET/$KEY" \
+            --no-progress \
+            --content-type application/octet-stream \
+            --metadata "sha256=$HASH"
+          UPLOADED_SIZE="$(aws --endpoint-url "$ENDPOINT" s3api head-object --bucket "$BUCKET" --key "$KEY" --query ContentLength --output text)"
+          UPLOADED_HASH="$(aws --endpoint-url "$ENDPOINT" s3api head-object --bucket "$BUCKET" --key "$KEY" --query Metadata.sha256 --output text)"
+          test "$SIZE" = "$UPLOADED_SIZE"
+          test "$HASH" = "$UPLOADED_HASH"
+          echo "R2 private object uploaded; size and checksum metadata verified."
+          echo "Public R2 access stays DISABLED. Do NOT deploy image to Contabo before boot-testing and rotating the temporary SSH key."
