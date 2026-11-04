@@ -1,0 +1,97 @@
+name: BAYERKLANG private R2 upload ONLY (no rebuild)
+on:
+  push:
+    branches:
+      - bayerklang-image-setup-20261104
+    paths:
+      - '.github/workflows/bayerklang-r2-upload-only.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  upload-existing-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.BAYERKLANG_R2_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BAYERKLANG_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BAYERKLANG_R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - name: Validate R2 credentials before downloading or uploading
+        run: |
+          set -euo pipefail
+          if [[ -z "$R2_ACCOUNT_ID" || -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+            echo "::error::Missing one or more GitHub R2 Secrets."
+            exit 1
+          fi
+          if [[ "${#AWS_ACCESS_KEY_ID}" -ne 32 ]]; then
+            echo "::error::Cloudflare R2 Access Key ID must have exactly 32 characters. Stored value has ${#AWS_ACCESS_KEY_ID}. Correct BAYERKLANG_R2_ACCESS_KEY_ID in GitHub Secrets, then rerun this job. No image rebuild is needed."
+            exit 1
+          fi
+          echo "R2 credentials are present and Access Key ID has the expected length; values remain hidden."
+      - name: Download existing verified image part 00 from run 11
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-part-00
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: image
+      - name: Download existing verified image part 01 from run 11
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-part-01
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: image
+      - name: Download SHA256 manifest from run 11
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-MANIFEST
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: image
+      - name: Reassemble and verify existing QCOW2, do not rebuild
+        working-directory: image
+        run: |
+          set -euo pipefail
+          IMAGE='BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2'
+          cat "${IMAGE}.part-00" "${IMAGE}.part-01" > "$IMAGE"
+          sha256sum --check "${IMAGE}.sha256"
+          test -s "$IMAGE"
+      - name: Ensure AWS CLI is available
+        run: |
+          set -euo pipefail
+          if ! command -v aws >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y unzip
+            curl --fail --location --silent --show-error \
+              'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' \
+              --output /tmp/awscliv2.zip
+            cd /tmp
+            unzip -q awscliv2.zip
+            sudo ./aws/install
+          fi
+          aws --version
+      - name: Upload verified image privately to EU R2 and check checksum metadata
+        working-directory: image
+        run: |
+          set -euo pipefail
+          IMAGE='BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2'
+          KEY="images/$IMAGE"
+          BUCKET='bayerklang-ki-images'
+          ENDPOINT="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
+          HASH="$(sha256sum "$IMAGE" | cut -d ' ' -f1)"
+          SIZE="$(stat -c '%s' "$IMAGE")"
+          aws --endpoint-url "$ENDPOINT" s3 cp "$IMAGE" "s3://$BUCKET/$KEY" \
+            --no-progress --content-type application/octet-stream \
+            --metadata "sha256=$HASH"
+          REMOTE_SIZE="$(aws --endpoint-url "$ENDPOINT" s3api head-object \
+            --bucket "$BUCKET" --key "$KEY" --query ContentLength --output text)"
+          REMOTE_HASH="$(aws --endpoint-url "$ENDPOINT" s3api head-object \
+            --bucket "$BUCKET" --key "$KEY" --query Metadata.sha256 --output text)"
+          test "$SIZE" = "$REMOTE_SIZE"
+          test "$HASH" = "$REMOTE_HASH"
+          echo 'Private EU R2 upload verified. Contabo import and public access remain disabled.'
