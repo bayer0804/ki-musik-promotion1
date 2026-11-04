@@ -19,7 +19,7 @@ ACTUAL="$(sha256sum "$ROOT/build/$NAME" | cut -d ' ' -f 1)"
 test -n "$EXPECTED" && test "$EXPECTED" = "$ACTUAL" || { echo "Checksum mismatch"; exit 3; }
 cp "$ROOT/build/$NAME" "$ROOT/build/work.qcow2"
 qemu-img resize "$ROOT/build/work.qcow2" 32G
-virt-customize -a "$ROOT/build/work.qcow2" --network --upload "$KEY:/root/bayerklang-public.pub" --run "$ROOT/configure-guest.sh"
+virt-customize -a "$ROOT/build/work.qcow2" --no-network --upload "$KEY:/root/bayerklang-public.pub" --run "$ROOT/configure-guest.sh"
 virt-sysprep -a "$ROOT/build/work.qcow2" --operations machine-id,ssh-hostkeys
 qemu-img convert -p -f qcow2 -O qcow2 -c "$ROOT/build/work.qcow2" "$ROOT/output/$OUT"
 qemu-img check "$ROOT/output/$OUT"
