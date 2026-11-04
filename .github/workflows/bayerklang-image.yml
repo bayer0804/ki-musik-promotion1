@@ -20,6 +20,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-utils libguestfs-tools curl
+          # libguestfs prefers passt when installed; its sandbox fails on hosted runners.
+          # Removing it makes libguestfs use QEMU SLIRP networking instead.
+          sudo apt-get purge -y passt || true
+          ! command -v passt
       - name: Build image and validate QCOW2
         working-directory: bayerklang-image
         run: |
