@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/bin/sh
+set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -qy --no-install-recommends \
