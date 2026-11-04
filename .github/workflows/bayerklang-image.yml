@@ -96,7 +96,8 @@ jobs:
           AWS_EC2_METADATA_DISABLED: 'true'
         run: |
           set -euo pipefail
-          IMAGE="bayerklang-image/output/BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2"
+          cd bayerklang-image/output
+          IMAGE="BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2"
           KEY="images/BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2"
           BUCKET="bayerklang-ki-images"
           ENDPOINT="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"
