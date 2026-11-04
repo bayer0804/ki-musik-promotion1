@@ -1,0 +1,36 @@
+name: BAYERKLANG custom Ubuntu image build
+on:
+  push:
+    branches:
+      - bayerklang-image-setup-20261104
+    paths:
+      - 'bayerklang-image/**'
+      - '.github/workflows/bayerklang-image.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-qcow2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - name: Checkout isolated image branch
+        uses: actions/checkout@v4
+      - name: Install image-building tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-utils libguestfs-tools curl
+      - name: Build image and validate QCOW2
+        working-directory: bayerklang-image
+        run: |
+          chmod +x build-qcow2.sh configure-guest.sh
+          sudo ./build-qcow2.sh
+      - name: Upload test artifact (not a public Contabo import URL)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BAYERKLANG-KI-Desktop-QCOW2-test
+          path: |
+            bayerklang-image/output/*.qcow2
+            bayerklang-image/output/*.sha256
+          retention-days: 7
+          compression-level: 0
