@@ -29,6 +29,7 @@ jobs:
         run: |
           chmod +x build-qcow2.sh configure-guest.sh
           sudo ./build-qcow2.sh
+          sudo chown -R "${USER}:${USER}" output
       - name: Split the verified QCOW2 into transport-safe parts
         working-directory: bayerklang-image/output
         run: |
