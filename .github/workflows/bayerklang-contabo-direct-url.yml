@@ -74,16 +74,16 @@ jobs:
           set -euo pipefail
           IMAGE="$GITHUB_WORKSPACE/existing-image/$IMAGE_RELEASE"
           PUB="$GITHUB_WORKSPACE/deployment/BAYERKLANG-Contabo-SSH-20261105.pub"
-          virt-customize -a "$IMAGE" --no-network \
+          sudo LIBGUESTFS_BACKEND=direct LIBGUESTFS_MEMSIZE=4096 virt-customize -a "$IMAGE" --no-network \
             --upload "$PUB:/tmp/bayerklang-new-authorized-keys" \
             --run-command 'install -d -m 0700 -o bayerki -g bayerki /home/bayerki/.ssh && install -m 0600 -o bayerki -g bayerki /tmp/bayerklang-new-authorized-keys /home/bayerki/.ssh/authorized_keys && rm -f /tmp/bayerklang-new-authorized-keys'
-          virt-sysprep -a "$IMAGE" --operations ssh-hostkeys
+          sudo LIBGUESTFS_BACKEND=direct LIBGUESTFS_MEMSIZE=4096 virt-sysprep -a "$IMAGE" --operations ssh-hostkeys
       - name: Verify guest SSH key, QCOW2 integrity and output fingerprint
         run: |
           set -euo pipefail
           IMAGE="$GITHUB_WORKSPACE/existing-image/$IMAGE_RELEASE"
           PUB="$GITHUB_WORKSPACE/deployment/BAYERKLANG-Contabo-SSH-20261105.pub"
-          virt-cat -a "$IMAGE" /home/bayerki/.ssh/authorized_keys | cmp - "$PUB"
+          sudo LIBGUESTFS_BACKEND=direct LIBGUESTFS_MEMSIZE=4096 virt-cat -a "$IMAGE" /home/bayerki/.ssh/authorized_keys | cmp - "$PUB"
           qemu-img check "$IMAGE"
           qemu-img info --output=json "$IMAGE" > /tmp/bayerklang-image-info.json
           python3 - <<'PY'
