@@ -1,0 +1,120 @@
+name: BAYERKLANG safe Contabo direct QCOW2 URL
+on:
+  push:
+    branches:
+      - bayerklang-image-setup-20261104
+    paths:
+      - '.github/workflows/bayerklang-contabo-direct-url.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  release-sanitized-existing-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      LIBGUESTFS_BACKEND: direct
+      LIBGUESTFS_MEMSIZE: '4096'
+      IMAGE_ORIGINAL: BAYERKLANG-KI-Desktop-1.0-Ubuntu-24.04.qcow2
+      IMAGE_RELEASE: BAYERKLANG-Contabo-Ubuntu-24.04-SAFE.qcow2
+      RELEASE_TAG: bayerklang-contabo-20261105-safe
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout isolated image branch
+        uses: actions/checkout@v4
+      - name: Verify replacement public key is present and syntactically valid
+        run: |
+          set -euo pipefail
+          KEY='deployment/BAYERKLANG-Contabo-SSH-20261105.pub'
+          test -s "$KEY"
+          grep -Eq '^ssh-ed25519 AAAA[0-9A-Za-z+/=]+( |$)' "$KEY"
+          test "$(wc -l < "$KEY")" -eq 1
+          echo 'Replacement PUBLIC key verified. Private key is never uploaded.'
+      - name: Download existing image part 00
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-part-00
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: existing-image
+      - name: Download existing image part 01
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-part-01
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: existing-image
+      - name: Download original image checksum manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: BAYERKLANG-QCOW2-MANIFEST
+          run-id: 41917335670
+          github-token: ${{ github.token }}
+          path: existing-image
+      - name: Reassemble and verify original image without rebuilding Ubuntu
+        working-directory: existing-image
+        run: |
+          set -euo pipefail
+          cat "${IMAGE_ORIGINAL}.part-00" "${IMAGE_ORIGINAL}.part-01" > "$IMAGE_ORIGINAL"
+          sha256sum --check "${IMAGE_ORIGINAL}.sha256"
+          test -s "$IMAGE_ORIGINAL"
+          mv "$IMAGE_ORIGINAL" "$IMAGE_RELEASE"
+      - name: Install offline QCOW2 image maintenance utilities
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-utils libguestfs-tools
+      - name: Replace exposed SSH public key in existing guest image
+        run: |
+          set -euo pipefail
+          IMAGE="$GITHUB_WORKSPACE/existing-image/$IMAGE_RELEASE"
+          PUB="$GITHUB_WORKSPACE/deployment/BAYERKLANG-Contabo-SSH-20261105.pub"
+          virt-customize -a "$IMAGE" --no-network \
+            --upload "$PUB:/tmp/bayerklang-new-authorized-keys" \
+            --run-command 'install -d -m 0700 -o bayerki -g bayerki /home/bayerki/.ssh && install -m 0600 -o bayerki -g bayerki /tmp/bayerklang-new-authorized-keys /home/bayerki/.ssh/authorized_keys && rm -f /tmp/bayerklang-new-authorized-keys'
+          virt-sysprep -a "$IMAGE" --operations ssh-hostkeys
+      - name: Verify guest SSH key, QCOW2 integrity and output fingerprint
+        run: |
+          set -euo pipefail
+          IMAGE="$GITHUB_WORKSPACE/existing-image/$IMAGE_RELEASE"
+          PUB="$GITHUB_WORKSPACE/deployment/BAYERKLANG-Contabo-SSH-20261105.pub"
+          virt-cat -a "$IMAGE" /home/bayerki/.ssh/authorized_keys | cmp - "$PUB"
+          qemu-img check "$IMAGE"
+          qemu-img info --output=json "$IMAGE" > /tmp/bayerklang-image-info.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/bayerklang-image-info.json') as f:
+              info=json.load(f)
+          assert info['format']=='qcow2', 'Not QCOW2'
+          assert info['virtual-size']>=20*1024**3, 'Unexpected virtual disk size'
+          print('Validated QCOW2; virtual disk:', info['virtual-size'])
+          PY
+          cd existing-image
+          sha256sum "$IMAGE_RELEASE" > "$IMAGE_RELEASE.sha256"
+          test "$(stat -c%s "$IMAGE_RELEASE")" -gt 100000000
+          echo 'Offline image integrity and new SSH authorized key verified.'
+      - name: Publish direct HTTPS QCOW2 as prerelease asset
+        working-directory: existing-image
+        run: |
+          set -euo pipefail
+          cat > /tmp/bayerklang-release-notes.txt <<'EOF'
+          BAYERKLANG Contabo Ubuntu 24.04 amd64 QCOW2, staged image.
+          Reuses verified GitHub Actions build artifact from run 41917335670.
+          The previously exposed SSH public key has been replaced with a new public key.
+          The matching private SSH key is NOT included in the image or GitHub.
+          SHA256 checksum is attached.
+          CAUTION: Offline QCOW2 and SSH key validations passed, but boot on Contabo
+          has NOT been tested. Do NOT reinstall/wipe an existing VPS without a backup,
+          boot verification and the owner's explicit approval.
+          This is a prerelease asset; main branch code was not changed.
+          EOF
+          gh release create "$RELEASE_TAG" "$IMAGE_RELEASE" "$IMAGE_RELEASE.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "${{ github.event.repository.default_branch }}" \
+            --title "BAYERKLANG Contabo QCOW2 - safe SSH key - staging" \
+            --notes-file /tmp/bayerklang-release-notes.txt \
+            --prerelease --latest=false
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
+          echo "Direct URL: https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$IMAGE_RELEASE"
