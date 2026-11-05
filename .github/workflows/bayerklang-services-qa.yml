@@ -1,0 +1,54 @@
+name: BAYERKLANG services configuration QA
+on:
+  push:
+    branches:
+      - bayerklang-image-setup-20261104
+    paths:
+      - '.github/workflows/bayerklang-services-qa.yml'
+      - 'deployment/services/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-config:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+      - name: Validate installer syntax
+        run: bash -n deployment/services/install-control.sh
+      - name: Check Docker and Compose
+        run: |
+          docker --version
+          docker compose version
+      - name: Validate private Contabo n8n and Portainer stack
+        env:
+          N8N_ENCRYPTION_KEY: dummy-ci-only-not-real-1234567890
+        run: |
+          docker compose -f deployment/services/contabo-compose.yml config --quiet
+          # Fail if admin ports would bind publicly.
+          docker compose -f deployment/services/contabo-compose.yml config --format json > /tmp/contabo-stack.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/contabo-stack.json') as f: doc=json.load(f)
+          for app in ('n8n','portainer'):
+            assert app in doc['services'], f'{app} missing'
+            for p in doc['services'][app]['ports']:
+              assert p.get('host_ip')=='127.0.0.1', f'{app} exposes public port: {p}'
+          print('Both n8n and Portainer are loopback-only.')
+          PY
+      - name: Validate standalone GPU service stack
+        run: |
+          docker compose -f deployment/services/ace-step-gpu.compose.yml config --quiet
+          docker compose -f deployment/services/ace-step-gpu.compose.yml config --format json > /tmp/gpu-stack.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/gpu-stack.json') as f: doc=json.load(f)
+          s=doc['services']['acestep']
+          assert all(p.get('host_ip')=='127.0.0.1' for p in s.get('ports',[]))
+          assert s.get('deploy',{}).get('resources',{}).get('reservations',{}).get('devices'), 'GPU reservation missing'
+          print('ACE-Step binds locally and reserves GPU.')
+          PY
+      - name: Summarize
+        run: echo 'Both deploy templates validated; no servers were altered.'
