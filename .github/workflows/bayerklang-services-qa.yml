@@ -17,7 +17,10 @@ jobs:
       - name: Checkout isolated branch
         uses: actions/checkout@v4
       - name: Validate installer syntax
-        run: bash -n deployment/services/install-control.sh
+        run: |
+          bash -n deployment/services/install-control.sh
+          bash -n deployment/services/install-active-agent.sh
+          bash -n deployment/services/install-tailscale.sh
       - name: Check Docker and Compose
         run: |
           docker --version
