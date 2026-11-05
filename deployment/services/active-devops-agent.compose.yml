@@ -1,0 +1,22 @@
+# Optional second engineer AI; OpenHands Agent Canvas on existing Docker host.
+# The interface must be reached via SSH tunnel ONLY, never as a public port.
+# Requires configuring a supported LLM provider/model inside Canvas before tasks work.
+name: bayerklang-devops-agent
+services:
+  openhands:
+    image: ghcr.io/openhands/agent-canvas:1.35.0
+    restart: unless-stopped
+    environment:
+      AGENT_CANVAS_ALLOW_LAN_SESSION_KEY: "true"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - openhands_state:/home/openhands/.openhands
+      - openhands_projects:/projects
+    security_opt:
+      - no-new-privileges:true
+    # No host Docker socket, SSH private keys, or Contabo/Cloudflare credentials.
+    # Import only a review-only copy of the isolated GitHub branch into /projects.
+volumes:
+  openhands_state:
+  openhands_projects:
