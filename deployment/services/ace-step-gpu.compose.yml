@@ -1,0 +1,31 @@
+# BAYERKLANG: Run ONLY on a separate machine with a compatible NVIDIA GPU
+# and NVIDIA Container Toolkit. NEVER deploy this on the CPU-only Contabo VPS.
+name: bayerklang-music-gpu
+services:
+  acestep:
+    image: ghcr.io/ace-step/ace-step-1.5:latest
+    restart: unless-stopped
+    environment:
+      ACESTEP_MODE: api
+      ACESTEP_API_HOST: 0.0.0.0
+      ACESTEP_API_PORT: "8001"
+      ACESTEP_INIT_SERVICE: "true"
+      ACESTEP_CONFIG_PATH: acestep-v15-turbo
+      ACESTEP_LM_MODEL_PATH: acestep-5Hz-lm-0.6B
+    ports:
+      - "127.0.0.1:8001:8001"  # Use tunnel/VPN only
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./gradio_outputs:/app/gradio_outputs
+      - ./acestep_output:/app/acestep_output
+      - hf_cache:/root/.cache/huggingface
+    shm_size: "2gb"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+volumes:
+  hf_cache:
