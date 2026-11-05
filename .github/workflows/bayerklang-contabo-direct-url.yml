@@ -65,6 +65,10 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends qemu-utils libguestfs-tools
+          # Known GitHub runner issue: libguestfs supermin breaks with passt.
+          # The original verified image build fixed this by removing passt.
+          sudo apt-get purge -y passt || true
+          ! command -v passt
       - name: Replace exposed SSH public key in existing guest image
         run: |
           set -euo pipefail
