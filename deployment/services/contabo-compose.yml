@@ -1,0 +1,29 @@
+# BAYERKLANG: Contabo control plane. All admin services bind to loopback ONLY.
+# Do not publish these ports directly to the Internet.
+name: bayerklang-control
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:stable
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      TZ: Europe/Berlin
+      GENERIC_TIMEZONE: Europe/Berlin
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Generate a persistent local key first}
+      N8N_SECURE_COOKIE: "false"  # Local SSH tunnel only; use HTTPS before public access
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+  portainer:
+    image: portainer/portainer-ce:lts
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+volumes:
+  n8n_data:
+  portainer_data:
